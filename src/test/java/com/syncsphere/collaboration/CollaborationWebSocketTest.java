@@ -7,6 +7,7 @@ import com.syncsphere.support.IntegrationTestBase;
 import com.syncsphere.support.StompTestClient;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 
 import java.util.Map;
 import java.util.UUID;
@@ -28,6 +29,9 @@ class CollaborationWebSocketTest extends IntegrationTestBase {
 
     @Autowired
     private PresenceService presenceService;
+
+    @Autowired
+    private StringRedisTemplate redis;
 
     @Test
     void joiningReturnsTheCurrentSnapshotAndParticipantIdentity() throws Exception {
@@ -186,6 +190,24 @@ class CollaborationWebSocketTest extends IntegrationTestBase {
             JsonNode leftEvent = next(presence);
             assertThat(leftEvent.get("change").asText()).isEqualTo("LEFT");
             assertThat(leftEvent.at("/participant/displayName").asText()).isEqualTo("Bob");
+            assertThat(presenceService.listParticipants(doc.id()))
+                    .extracting(Participant::displayName)
+                    .containsExactly("Alice");
+        }
+    }
+
+    /** Simulates a Redis restart (presence data wiped) while the user stays connected. */
+    @Test
+    void presenceIsRestoredByTheHeartbeatAfterRedisLosesIt() throws Exception {
+        DocumentSnapshot doc = documentService.createDocument("Self-healing", "");
+
+        try (StompTestClient alice = StompTestClient.connect(port)) {
+            alice.join(doc.id(), "Alice");
+            redis.delete("syncsphere:presence:" + doc.id());
+            assertThat(presenceService.listParticipants(doc.id())).isEmpty();
+
+            presenceService.refreshInstanceHeartbeat(); // normally runs every 10 s
+
             assertThat(presenceService.listParticipants(doc.id()))
                     .extracting(Participant::displayName)
                     .containsExactly("Alice");

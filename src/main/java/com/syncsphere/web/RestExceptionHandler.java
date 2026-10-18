@@ -9,6 +9,7 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -59,9 +60,15 @@ public class RestExceptionHandler {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Request body is missing or is not valid JSON");
     }
 
-    /** PostgreSQL down, connection pool exhausted, etc. The client may retry later. */
-    @ExceptionHandler(DataAccessException.class)
-    public ProblemDetail handleDataAccess(DataAccessException ex) {
+    /**
+     * PostgreSQL or Redis down, connection pool exhausted, etc. The client may retry later.
+     *
+     * <p>CannotCreateTransactionException is listed separately because it is NOT a DataAccessException:
+     * it is what {@code @Transactional} throws when it cannot even get a database connection to start the
+     * transaction. (Found by stopping the postgres container: without it, the API returned 500.)
+     */
+    @ExceptionHandler({DataAccessException.class, CannotCreateTransactionException.class})
+    public ProblemDetail handleDataStoreUnavailable(RuntimeException ex) {
         log.error("Data store unavailable while handling REST request", ex);
         return ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE,
                 "A data store is temporarily unavailable. Please retry.");

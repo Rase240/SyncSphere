@@ -18,6 +18,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Tracks who is connected to each document, shared across all application instances.
@@ -34,6 +35,11 @@ import java.util.UUID;
  * which instance owns it, and an entry whose instance has stopped heart-beating is treated as stale and
  * deleted the next time anyone reads the list.
  *
+ * <h2>Self-healing after a Redis restart</h2>
+ * Redis runs without persistence (presence is temporary), so a Redis restart empties the hash while users
+ * stay connected. Each instance therefore also keeps the participants connected to IT in memory and
+ * re-writes them on every heartbeat, which restores the shared view within about 10 seconds.
+ *
  * <p>Presence is temporary data: it is never written to PostgreSQL.
  */
 @Service
@@ -49,6 +55,8 @@ public class PresenceService {
     private final HashOperations<String, String, String> hashes;
     private final ObjectMapper objectMapper;
     private final String instanceId;
+    /** Participants whose WebSocket is connected to this instance: documentId -> (participantId -> participant). */
+    private final Map<UUID, Map<String, Participant>> localParticipants = new ConcurrentHashMap<>();
 
     public PresenceService(StringRedisTemplate redis, ObjectMapper objectMapper, SyncSphereProperties properties) {
         this.redis = redis;
@@ -58,6 +66,13 @@ public class PresenceService {
     }
 
     public void join(UUID documentId, Participant participant) {
+        // compute()/computeIfPresent() run atomically per key, so a join and a leave for the same document
+        // cannot interleave and lose an entry.
+        localParticipants.compute(documentId, (id, participants) -> {
+            Map<String, Participant> updated = participants == null ? new ConcurrentHashMap<>() : participants;
+            updated.put(participant.participantId(), participant);
+            return updated;
+        });
         hashes.put(presenceKey(documentId), participant.participantId(), toJson(participant));
     }
 
@@ -66,6 +81,10 @@ public class PresenceService {
      *         was already gone (Spring may publish more than one disconnect event for a session)
      */
     public boolean leave(UUID documentId, String participantId) {
+        localParticipants.computeIfPresent(documentId, (id, participants) -> {
+            participants.remove(participantId);
+            return participants.isEmpty() ? null : participants; // returning null removes the entry
+        });
         Long removed = hashes.delete(presenceKey(documentId), participantId);
         return removed != null && removed > 0;
     }
@@ -94,12 +113,15 @@ public class PresenceService {
 
     /**
      * Runs every 10 s on the scheduler. Missing three beats in a row (30 s) marks this instance as dead
-     * to the others. A Redis outage must not crash the scheduler thread, so failures are only logged.
+     * to the others. It also re-writes this instance's participants (see "Self-healing" above).
+     * A Redis outage must not crash the scheduler thread, so failures are only logged.
      */
     @Scheduled(fixedRate = 10_000)
     public void refreshInstanceHeartbeat() {
         try {
             redis.opsForValue().set(INSTANCE_KEY_PREFIX + instanceId, "alive", INSTANCE_HEARTBEAT_TTL);
+            localParticipants.forEach((documentId, participants) -> participants.values().forEach(
+                    participant -> hashes.put(presenceKey(documentId), participant.participantId(), toJson(participant))));
         } catch (DataAccessException e) {
             log.warn("Could not refresh presence heartbeat instanceId={} cause={}", instanceId, e.getMessage());
         }

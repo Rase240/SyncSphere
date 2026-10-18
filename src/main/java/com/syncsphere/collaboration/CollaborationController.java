@@ -19,6 +19,7 @@ import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.annotation.SendToUser;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 
 import java.security.Principal;
@@ -143,9 +144,10 @@ public class CollaborationController {
         return ErrorMessage.of(ErrorMessage.Code.NOT_JOINED, ex.getMessage());
     }
 
-    @MessageExceptionHandler
+    /** Database or Redis unreachable. CannotCreateTransactionException: no connection to start a transaction. */
+    @MessageExceptionHandler({DataAccessException.class, CannotCreateTransactionException.class})
     @SendToUser(destinations = "/queue/errors", broadcast = false)
-    public ErrorMessage handleDataAccess(DataAccessException ex) {
+    public ErrorMessage handleDataStoreUnavailable(RuntimeException ex) {
         log.error("Data store unavailable while handling STOMP message", ex);
         return ErrorMessage.of(ErrorMessage.Code.SERVICE_UNAVAILABLE, "A data store is temporarily unavailable. Please retry.");
     }
