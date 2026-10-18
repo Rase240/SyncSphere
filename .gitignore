@@ -1,0 +1,25 @@
+# Build output
+target/
+
+# Local environment files (never commit real credentials)
+.env
+.env.*
+!.env.example
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Python cache from the PDF build script
+__pycache__/

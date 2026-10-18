@@ -1,0 +1,71 @@
+# Every value that differs between environments is read from an environment variable,
+# with a development-only default after the colon. See .env.example for the full list.
+# The defaults below are for local development only - never reuse them in a real deployment.
+
+spring:
+  application:
+    name: syncsphere
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/syncsphere}
+    username: ${DB_USERNAME:syncsphere}
+    password: ${DB_PASSWORD:syncsphere_dev_password}
+    hikari:
+      # Fail fast (5 s) instead of hanging a request for 30 s when PostgreSQL is unreachable.
+      connection-timeout: 5000
+
+  jpa:
+    # Flyway owns the schema. Hibernate only checks that the entities match it.
+    hibernate:
+      ddl-auto: validate
+    # Do not keep a DB session open while rendering responses; services return immutable snapshots instead.
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    enabled: true
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2s
+
+  mvc:
+    # Spring's built-in errors (404 route, 405 method, ...) use the same RFC 7807 JSON as ours.
+    problemdetails:
+      enabled: true
+
+server:
+  port: ${SERVER_PORT:8080}
+  # Finish in-flight requests before stopping (docker compose stop sends SIGTERM).
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      # Show which components are UP/DOWN, but not connection details.
+      show-components: always
+      group:
+        # /actuator/health/readiness is only UP when PostgreSQL and Redis are reachable.
+        readiness:
+          include: readinessState,db,redis
+
+syncsphere:
+  instance-id: ${SYNCSPHERE_INSTANCE_ID:local-${random.int[1000,9999]}}
+  allowed-origins: ${SYNCSPHERE_ALLOWED_ORIGINS:http://localhost:*,http://127.0.0.1:*}
+  redis-channel: ${SYNCSPHERE_REDIS_CHANNEL:syncsphere:sync-events}
+
+logging:
+  level:
+    com.syncsphere: INFO
