@@ -1,0 +1,18 @@
+# Only pom.xml and src/ are needed to build the image. Everything else is excluded so the build
+# context stays small and no local secrets or build output end up in an image layer.
+target/
+.git/
+.github/
+.idea/
+.vscode/
+*.iml
+docs/
+*.md
+.env
+.env.*
+Dockerfile
+docker-compose.yml
+.mvn/
+mvnw
+mvnw.cmd
+src/test/
