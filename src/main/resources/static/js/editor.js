@@ -173,10 +173,11 @@ function onServerError(error) {
     const rejected = state.inFlight;
     state.inFlight = null;
     clearTimeout(ackTimer);
-    if (error.latest.revision >= state.serverRevision) {
-      state.serverRevision = error.latest.revision;
-      state.serverContent = error.latest.content;
-    }
+    // The snapshot in a conflict reply was read from the database just now, so it is adopted even if we
+    // believed in a higher revision (only a bogus event could have told us that). Without this, a client
+    // that once saw a forged revision would conflict forever.
+    state.serverRevision = error.latest.revision;
+    state.serverContent = error.latest.content;
     const merged = reconcileEditor(rejected.baseContent);
     logActivity(merged
       ? `Edit was based on revision ${rejected.baseRevision}; merged onto revision ${state.serverRevision} and resending.`
