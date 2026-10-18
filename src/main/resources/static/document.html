@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Document · SyncSphere</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <!-- STOMP client served from the stomp__stompjs WebJar (a Maven dependency), so no CDN is needed. -->
+  <script src="/webjars/stomp__stompjs/7.3.0/bundles/stomp.umd.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">← SyncSphere</a>
+    <h1 id="doc-title">Loading…</h1>
+    <span class="status" id="connection-status" data-status="connecting">connecting</span>
+    <span class="badge" id="instance-badge">instance: …</span>
+  </header>
+
+  <div class="banner" id="banner" hidden></div>
+
+  <main class="workspace">
+    <section class="editor-pane">
+      <textarea id="editor" spellcheck="false" readonly maxlength="50000"
+                placeholder="Start typing. Everyone in this document sees your changes."></textarea>
+      <div class="statusbar">
+        <span id="save-state">Connecting…</span>
+        <span id="char-count"></span>
+      </div>
+
+      <div class="card draft" id="draft-panel" hidden>
+        <h3>Your rejected draft</h3>
+        <p class="hint">Someone else changed the same part of the document at the same time, so your edit was not
+          applied automatically. The editor now shows the latest saved version. Your text is kept here.</p>
+        <textarea id="draft-text" readonly></textarea>
+        <div class="row">
+          <button type="button" id="draft-restore">Replace document with my draft</button>
+          <button type="button" id="draft-copy" class="secondary">Copy</button>
+          <button type="button" id="draft-dismiss" class="secondary">Dismiss</button>
+        </div>
+      </div>
+    </section>
+
+    <aside class="sidebar">
+      <section class="card">
+        <h3>Participants (<span id="participant-count">0</span>)</h3>
+        <ul class="participants" id="participants"></ul>
+      </section>
+      <section class="card">
+        <h3>Activity</h3>
+        <ul class="activity" id="activity"></ul>
+      </section>
+    </aside>
+  </main>
+
+  <div class="dialog-backdrop" id="name-dialog" hidden>
+    <form class="card dialog" id="name-form">
+      <h2>Choose a display name</h2>
+      <p class="hint">Other participants will see this name. It is not an authenticated identity.</p>
+      <input id="name-input" maxlength="40" required autocomplete="nickname">
+      <p class="error" id="name-error"></p>
+      <button type="submit">Join document</button>
+    </form>
+  </div>
+
+  <script type="module" src="/js/editor.js"></script>
+</body>
+</html>

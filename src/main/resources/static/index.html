@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SyncSphere</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">SyncSphere</a>
+    <span class="badge" id="instance-badge">instance: …</span>
+  </header>
+
+  <main class="home">
+    <section class="card">
+      <h2>Your display name</h2>
+      <p class="hint">Shown to other participants. It is remembered in this browser only and is not a login.</p>
+      <input id="display-name" maxlength="40" placeholder="e.g. Alice" autocomplete="nickname">
+    </section>
+
+    <section class="card">
+      <h2>New document</h2>
+      <form id="create-form" class="row">
+        <input id="new-title" maxlength="120" required placeholder="Document title">
+        <button type="submit">Create</button>
+      </form>
+      <p class="error" id="create-error"></p>
+    </section>
+
+    <section class="card">
+      <h2>Open by ID</h2>
+      <form id="open-form" class="row">
+        <input id="open-id" placeholder="Document UUID">
+        <button type="submit">Open</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Documents</h2>
+      <p class="hint" id="list-status">Loading…</p>
+      <ul class="document-list" id="document-list"></ul>
+    </section>
+  </main>
+
+  <script type="module" src="/js/home.js"></script>
+</body>
+</html>
