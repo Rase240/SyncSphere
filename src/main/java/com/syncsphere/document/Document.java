@@ -26,6 +26,11 @@ public class Document {
 
     public static final int MAX_TITLE_LENGTH = 120;
     public static final int MAX_CONTENT_LENGTH = 50_000;
+    /**
+     * Matches text without NUL characters (U+0000). PostgreSQL TEXT/VARCHAR cannot store NUL, so such input
+     * must be rejected by validation; otherwise the INSERT/UPDATE fails and looks like a database outage.
+     */
+    public static final String NO_NUL_CHARACTERS = "[^\\x00]*";
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

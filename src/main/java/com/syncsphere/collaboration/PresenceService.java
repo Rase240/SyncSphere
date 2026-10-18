@@ -5,8 +5,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.syncsphere.config.SyncSphereProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.dao.DataAccessException;
+import org.springframework.data.redis.core.Cursor;
 import org.springframework.data.redis.core.HashOperations;
+import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -17,6 +21,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -40,6 +45,17 @@ import java.util.concurrent.ConcurrentHashMap;
  * stay connected. Each instance therefore also keeps the participants connected to IT in memory and
  * re-writes them on every heartbeat, which restores the shared view within about 10 seconds.
  *
+ * <h2>Cleaning up after a crash or a failed removal</h2>
+ * The heartbeat cannot detect an instance that crashed and came back within 30 seconds under the same ID:
+ * its key never expires, so the entries of its old (now closed) connections would look alive forever.
+ * Two mechanisms close these gaps (the first was reproduced with "docker kill", the second found in code review):
+ * <ul>
+ *   <li>At startup this instance deletes every entry that names it as owner but is not one of its live
+ *       connections. A freshly started process has no connections, so such entries are leftovers.</li>
+ *   <li>If Redis is unreachable when a participant leaves, the removal is remembered and retried on
+ *       every heartbeat until it succeeds.</li>
+ * </ul>
+ *
  * <p>Presence is temporary data: it is never written to PostgreSQL.
  */
 @Service
@@ -57,6 +73,11 @@ public class PresenceService {
     private final String instanceId;
     /** Participants whose WebSocket is connected to this instance: documentId -> (participantId -> participant). */
     private final Map<UUID, Map<String, Participant>> localParticipants = new ConcurrentHashMap<>();
+    /** Removals that failed because Redis was unreachable; retried by the heartbeat. */
+    private final Set<PendingRemoval> pendingRemovals = ConcurrentHashMap.newKeySet();
+
+    private record PendingRemoval(UUID documentId, String participantId) {
+    }
 
     public PresenceService(StringRedisTemplate redis, ObjectMapper objectMapper, SyncSphereProperties properties) {
         this.redis = redis;
@@ -85,8 +106,13 @@ public class PresenceService {
             participants.remove(participantId);
             return participants.isEmpty() ? null : participants; // returning null removes the entry
         });
-        Long removed = hashes.delete(presenceKey(documentId), participantId);
-        return removed != null && removed > 0;
+        try {
+            Long removed = hashes.delete(presenceKey(documentId), participantId);
+            return removed != null && removed > 0;
+        } catch (DataAccessException e) {
+            pendingRemovals.add(new PendingRemoval(documentId, participantId));
+            throw e;
+        }
     }
 
     /** Live participants ordered by join time; stale entries from dead instances are removed on the way. */
@@ -122,9 +148,50 @@ public class PresenceService {
             redis.opsForValue().set(INSTANCE_KEY_PREFIX + instanceId, "alive", INSTANCE_HEARTBEAT_TTL);
             localParticipants.forEach((documentId, participants) -> participants.values().forEach(
                     participant -> hashes.put(presenceKey(documentId), participant.participantId(), toJson(participant))));
+            for (PendingRemoval removal : pendingRemovals) {
+                hashes.delete(presenceKey(removal.documentId()), removal.participantId());
+                pendingRemovals.remove(removal);
+            }
         } catch (DataAccessException e) {
             log.warn("Could not refresh presence heartbeat instanceId={} cause={}", instanceId, e.getMessage());
         }
+    }
+
+    /**
+     * Deletes presence entries left behind by a previous run of this instance (see class comment).
+     * Runs once when the application is ready; entries of connections that already joined are kept.
+     *
+     * @return how many leftover entries were removed
+     */
+    @EventListener(ApplicationReadyEvent.class)
+    public int removeEntriesFromPreviousRun() {
+        int removedCount = 0;
+        ScanOptions pattern = ScanOptions.scanOptions().match(PRESENCE_KEY_PREFIX + "*").count(100).build();
+        try (Cursor<String> keys = redis.scan(pattern)) {
+            while (keys.hasNext()) {
+                String key = keys.next();
+                UUID documentId = UUID.fromString(key.substring(PRESENCE_KEY_PREFIX.length()));
+                for (Map.Entry<String, String> entry : hashes.entries(key).entrySet()) {
+                    Participant participant = fromJson(entry.getValue());
+                    if (participant != null && instanceId.equals(participant.instanceId())
+                            && !isLocallyConnected(documentId, participant.participantId())) {
+                        hashes.delete(key, entry.getKey());
+                        removedCount++;
+                    }
+                }
+            }
+        } catch (DataAccessException | IllegalArgumentException e) {
+            log.warn("Could not clean up presence entries from a previous run cause={}", e.getMessage());
+        }
+        if (removedCount > 0) {
+            log.info("Removed {} presence entries left over from a previous run of instanceId={}", removedCount, instanceId);
+        }
+        return removedCount;
+    }
+
+    private boolean isLocallyConnected(UUID documentId, String participantId) {
+        Map<String, Participant> participants = localParticipants.get(documentId);
+        return participants != null && participants.containsKey(participantId);
     }
 
     private boolean isInstanceAlive(String candidateInstanceId) {

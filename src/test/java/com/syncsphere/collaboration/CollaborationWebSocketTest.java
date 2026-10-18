@@ -134,6 +134,12 @@ class CollaborationWebSocketTest extends IntegrationTestBase {
 
             client.sendRaw("/app/documents/" + doc.id() + "/edit", "{this is not json");
             assertThat(next(errors).get("code").asText()).isEqualTo("INVALID_MESSAGE");
+
+            // Would otherwise fail in PostgreSQL and be reported as SERVICE_UNAVAILABLE (client retries forever).
+            client.edit(doc.id(), 0, "nul\u0000inside", "nul-1");
+            JsonNode nulError = next(errors);
+            assertThat(nulError.get("code").asText()).isEqualTo("VALIDATION_FAILED");
+            assertThat(nulError.get("details").toString()).contains("must not contain NUL characters");
         }
     }
 

@@ -22,6 +22,7 @@ public record EditRequest(
 
         @NotNull(message = "content is required")
         @Size(max = Document.MAX_CONTENT_LENGTH, message = "content must be at most 50000 characters")
+        @Pattern(regexp = Document.NO_NUL_CHARACTERS, message = "content must not contain NUL characters")
         String content,
 
         @NotNull(message = "clientEditId is required")

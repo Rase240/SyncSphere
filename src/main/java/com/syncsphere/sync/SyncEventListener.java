@@ -39,6 +39,11 @@ public class SyncEventListener implements MessageListener {
                     new String(message.getChannel()), e.getMessage());
             return;
         }
+        if (event.eventId() == null || event.documentId() == null) {
+            // Valid JSON but not a usable event (it would be routed to "/topic/documents/null").
+            log.warn("Ignoring sync event without eventId/documentId type={}", event.getClass().getSimpleName());
+            return;
+        }
         broadcaster.deliver(event);
     }
 }

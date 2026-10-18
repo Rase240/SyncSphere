@@ -16,8 +16,8 @@ Request:
 
 | Field | Rules |
 |---|---|
-| `title` | required, not blank, at most 120 characters; surrounding whitespace is removed before saving |
-| `content` | optional (`null` → empty), at most 50,000 characters |
+| `title` | required, not blank, at most 120 characters, no NUL (U+0000) characters; surrounding whitespace is removed before saving |
+| `content` | optional (`null` → empty), at most 50,000 characters, no NUL (U+0000) characters |
 
 Response `201 Created`, header `Location: http://localhost:8080/api/documents/{id}`:
 
@@ -101,7 +101,7 @@ Ordered by `joinedAt`. Participants whose instance stopped heart-beating are rem
 | Destination | Payload | Rules |
 |---|---|---|
 | `/app/documents/{id}/join` | `{"displayName":"Alice"}` | 1–40 chars, letters/digits/space/`. _ ' -`; document must exist |
-| `/app/documents/{id}/edit` | `{"baseRevision":4,"content":"...","clientEditId":"3d02d926-..."}` | must have joined this document; `baseRevision ≥ 0`; content ≤ 50,000 chars; `clientEditId` 1–64 of `[A-Za-z0-9-]` |
+| `/app/documents/{id}/edit` | `{"baseRevision":4,"content":"...","clientEditId":"3d02d926-..."}` | must have joined this document; `baseRevision ≥ 0`; content ≤ 50,000 chars without NUL characters; `clientEditId` 1–64 of `[A-Za-z0-9-]` |
 | `/app/documents/{id}/cursor` | `{"revision":7,"selectionStart":194,"selectionEnd":194}` | must have joined; offsets 0–50,000; `selectionEnd ≥ selectionStart` |
 
 `{id}` must be a UUID. Any other SEND destination is dropped by `StompDestinationGuard` (logged as a warning,
@@ -200,9 +200,11 @@ one connection cannot read another connection's private messages.
 | `INTERNAL_ERROR` | anything unexpected (logged with a stack trace on the server) |
 
 How `editor.js` reacts: `REVISION_CONFLICT` → three-way merge if the changes do not overlap, otherwise the
-rejected-draft panel. `DOCUMENT_NOT_FOUND` → banner and disconnect. Any other error while an edit is in flight
-→ the text stays in the editor, a banner is shown, and sending is retried after 3 seconds. Every error is also
-written to the activity log.
+rejected-draft panel. `DOCUMENT_NOT_FOUND` → banner and disconnect. `SERVICE_UNAVAILABLE` / `INTERNAL_ERROR`
+while an edit is in flight → the text stays in the editor and sending is retried after 3 seconds. Any other error
+(e.g. `VALIDATION_FAILED`) → the text stays, a banner explains why, and nothing is retried automatically
+(resending the same text would fail the same way); the next keystroke sends again. Every error is also written
+to the activity log.
 
 ## 3. Redis
 

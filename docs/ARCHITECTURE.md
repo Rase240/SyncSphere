@@ -125,6 +125,10 @@ syncsphere:instance:{instanceId}   STRING  "alive", TTL 30 s, refreshed every 10
 - Crashed instance: it stops refreshing its heartbeat key; `listParticipants` drops entries whose instance key
   has expired.
 - Redis restart (empty dataset): each instance re-writes its own connected participants on every heartbeat.
+- Instance killed and restarted under the same ID within 30 s: the heartbeat key never expires, so the old
+  entries would look alive forever. At startup (`ApplicationReadyEvent`) each instance therefore deletes entries
+  that name it but are not live local connections. Found by running `docker kill` on `app-1`.
+- Redis unreachable when a user disconnects: the failed removal is remembered and retried on each heartbeat.
 
 Presence events are deltas (one participant joined/left). The full list comes with the join snapshot and from
 `GET /api/documents/{id}/participants`, which clients poll every 15 s to repair drift.
@@ -168,11 +172,12 @@ the draft is an explicit user decision.
 |---|---|---|
 | A client misses a Pub/Sub message | Their view lags for ≤ ~15 s, then catches up | Periodic `GET /api/documents/{id}`; next edit would also conflict and deliver the snapshot |
 | Redis down | Users on the **same** instance keep collaborating; other instances see the change after Redis returns (snapshot resync); presence list may be stale; `/participants` returns 503; readiness DOWN | Publisher falls back to local delivery; Lettuce reconnects; listener container re-subscribes; heartbeat re-registers presence |
-| PostgreSQL down | Edits rejected with `SERVICE_UNAVAILABLE` (browser retries every few seconds and keeps the text); REST returns 503; readiness DOWN, liveness UP | Hikari connection timeout is 5 s; once the DB is back, the retried edit is committed |
+| PostgreSQL down | Edits rejected with `SERVICE_UNAVAILABLE` (browser keeps the text and retries every 3 s); REST returns 503; readiness DOWN, liveness UP | Hikari connection timeout is 5 s; once the DB is back, the retried edit is committed |
 | App instance restarts | WebSocket closes; browser shows "reconnecting", reconnects (possibly after a few seconds), rejoins and resynchronizes from the snapshot | Acknowledged edits are already in PostgreSQL |
 | App instance crashes | Same as restart for its users; others see the crashed instance's participants disappear within ~30 s | Heartbeat TTL |
+| App instance crashes and is restarted at once under the same ID | Old participant entries are removed when it starts | Startup sweep in `PresenceService.removeEntriesFromPreviousRun` |
 | Two instances accept edits on the same revision simultaneously | One edit wins, the other user gets a conflict | `@Version` optimistic lock |
-| Malformed or forged messages | Sender gets `VALIDATION_FAILED` / `INVALID_MESSAGE`; frames to disallowed destinations are dropped | Bean Validation, `StompDestinationGuard`, listener ignores unreadable Redis messages |
+| Malformed or forged messages | Sender gets `VALIDATION_FAILED` / `INVALID_MESSAGE` (not retried automatically); frames to disallowed destinations are dropped | Bean Validation, `StompDestinationGuard`, listener ignores unreadable Redis messages and events without IDs |
 
 Readiness vs liveness: when a dependency is down, `/actuator/health/readiness` reports DOWN (do not route
 traffic) while liveness stays UP (do not kill the container: restarting would not fix PostgreSQL).
@@ -188,6 +193,8 @@ Implemented:
 - WebSocket handshake origin check (`SYNCSPHERE_ALLOWED_ORIGINS`).
 - Display names restricted to letters, digits, space and `. _ ' -`; the UI uses `textContent` everywhere.
 - Inbound STOMP frames limited to 512 KB; documents to 50,000 characters (also a DB `CHECK` constraint).
+- Titles and content may not contain the NUL character (U+0000), which PostgreSQL cannot store; without this
+  rule such input failed inside the database and was reported as a 503 outage.
 - No secrets in the repository; all credentials via environment variables.
 
 Not implemented (would be required for production):

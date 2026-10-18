@@ -70,6 +70,7 @@ class RedisSyncTest extends IntegrationTestBase {
 
             redis.convertAndSend(properties.redisChannel(), "{not valid json");
             redis.convertAndSend(properties.redisChannel(), "{\"type\":\"UNKNOWN_TYPE\"}");
+            redis.convertAndSend(properties.redisChannel(), "{\"type\":\"DOCUMENT_UPDATED\"}"); // no IDs
             redis.convertAndSend(properties.redisChannel(), objectMapper.writeValueAsString(validEvent));
 
             assertThat(next(updates).get("content").asText()).isEqualTo("still works");

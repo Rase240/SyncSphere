@@ -36,7 +36,8 @@ What is implemented and verified (see [Verification](#what-was-verified)):
 - **Join snapshot**: a user joining (or reconnecting) receives the current authoritative document.
 - **Presence**: live participant list with join/leave events, shared across instances via Redis.
   Disconnected users are removed (WebSocket close or missed STOMP heartbeats); participants of a crashed
-  instance are pruned through per-instance heartbeat keys.
+  instance are pruned through per-instance heartbeat keys, and an instance that restarts under the same ID
+  removes its own leftover entries at startup.
 - **Cursor/selection sharing**: participants see each other's caret position (line/column, selection length).
   Cursor positions are never persisted.
 - **Multi-instance fan-out with Redis Pub/Sub**, with event-ID de-duplication and a local-delivery fallback
@@ -102,6 +103,8 @@ PostgreSQL and Redis, waits until both are healthy, and starts the two app insta
 
 Then:
 
+A scripted five-minute version (with what to point out in an interview) is in [docs/DEMO.md](docs/DEMO.md).
+
 1. Open <http://localhost:8080>, enter a name, create a document.
 2. Copy the document URL, change the port to **8081**, and open it in a second browser window
    (a private window works well because the display name is stored per browser/origin).
@@ -161,9 +164,10 @@ More in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 ./mvnw test
 ```
 
-Runs 44 Java tests. Docker must be running: 32 of them are integration tests that start throwaway
+Runs 47 Java tests. Docker must be running: 35 of them are integration tests that start throwaway
 PostgreSQL and Redis containers with Testcontainers (no Compose stack needed). They cover the REST API,
-revision conflicts (including a six-thread race), WebSocket broadcast, presence, cursor relay, Redis delivery
+revision conflicts (including a six-thread race), WebSocket broadcast, presence (including cleanup after a
+crash or a failed removal), cursor relay, Redis delivery
 with de-duplication, and a **two-instance test** that boots a second Spring context and checks that an edit
 on instance 1 reaches a client on instance 2 only via Redis.
 
@@ -256,18 +260,19 @@ More: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 On the development machine (Windows 11, Docker Desktop 29, JDK 26 for local builds, Temurin 21 in the image):
 
-- `./mvnw test`: 44 tests passed; `node --test src/test/js/merge.test.mjs`: 7 passed.
+- `./mvnw clean verify`: 47 tests passed; `node --test src/test/js/merge.test.mjs`: 7 passed.
 - `docker compose up --build`: all four containers healthy; Flyway applied V1 once while both instances started.
 - Two browser tabs on `:8080` and `:8081` edited one document; updates, presence and cursor positions crossed
   instances; a non-overlapping concurrent edit was merged; an overlapping one produced a rejected draft.
-- Restarting `app-1`, stopping/starting Redis, stopping/starting PostgreSQL and `docker compose down`/`up`
-  all recovered as documented (details in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#8-manual-verification-checklist)).
+- Restarting `app-1`, `docker kill` + restart of `app-1`, stopping/starting Redis, stopping/starting
+  PostgreSQL and `docker compose down`/`up` all recovered as documented (details in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#8-manual-verification-checklist)).
 
 ## Documentation
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — design decisions, event flows, failure modes, trade-offs
 - [docs/API-AND-MESSAGING.md](docs/API-AND-MESSAGING.md) — endpoints, STOMP destinations, payloads, errors
 - [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) — workflow, tests, migrations, Docker, debugging
+- [docs/DEMO.md](docs/DEMO.md) — a five-minute, reproducible two-browser demo and the screenshots worth taking
 
 ## Future improvements
 

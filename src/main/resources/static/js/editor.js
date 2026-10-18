@@ -16,6 +16,7 @@ const CURSOR_THROTTLE_MS = 150;   // at most ~7 cursor updates per second
 const ACK_TIMEOUT_MS = 10_000;    // give up waiting for an acknowledgement after this
 const RESYNC_INTERVAL_MS = 15_000; // safety net against missed Pub/Sub messages
 const MAX_CONTENT_LENGTH = 50_000;
+const TRANSIENT_ERRORS = new Set(['SERVICE_UNAVAILABLE', 'INTERNAL_ERROR']); // worth retrying automatically
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const documentId = new URLSearchParams(window.location.search).get('id') || '';
@@ -193,11 +194,17 @@ function onServerError(error) {
     return;
   }
   if (state.inFlight) {
-    // The edit was refused for a non-conflict reason (validation, database down, ...). Retry later.
+    // The edit was refused for a non-conflict reason. The text stays in the editor either way.
     state.inFlight = null;
     clearTimeout(ackTimer);
-    showBanner(`Your last change could not be saved (${error.code}). Retrying…`, 'warn');
-    setTimeout(scheduleSend, 3000);
+    if (TRANSIENT_ERRORS.has(error.code)) {
+      showBanner(`Your last change could not be saved (${error.code}). Retrying…`, 'warn');
+      setTimeout(scheduleSend, 3000);
+    } else {
+      // Resending the same text would fail the same way (e.g. VALIDATION_FAILED), so do not loop.
+      // The next keystroke sends the text again.
+      showBanner(`Your last change was rejected (${error.code}): ${error.details ? error.details.join('; ') : error.message}`, 'error');
+    }
   }
   updateSaveState();
 }

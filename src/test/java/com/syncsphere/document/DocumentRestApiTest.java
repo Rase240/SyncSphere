@@ -64,6 +64,16 @@ class DocumentRestApiTest extends IntegrationTestBase {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
+    /** PostgreSQL cannot store U+0000; without validation this surfaced as a misleading 503. */
+    @Test
+    void contentWithNulCharacterIsRejectedAsInvalidInput() {
+        ResponseEntity<JsonNode> response = http.postForEntity("/api/documents",
+                Map.of("title", "NUL", "content", "a\u0000b"), JsonNode.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody().get("errors").toString()).contains("must not contain NUL characters");
+    }
+
     @Test
     void malformedJsonIsRejected() {
         HttpHeaders headers = new HttpHeaders();

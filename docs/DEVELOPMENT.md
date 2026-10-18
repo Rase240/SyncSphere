@@ -49,7 +49,7 @@ the Spring Boot repackage step fails because it cannot replace the file.
 ## 4. Tests
 
 ```bash
-./mvnw test                                   # all 44 Java tests (Docker must be running)
+./mvnw test                                   # all 47 Java tests (Docker must be running)
 ./mvnw test -Dtest=StompDestinationGuardTest  # one class
 ./mvnw test -Dtest='CollaborationWebSocketTest#staleEditIsRejectedPrivatelyWithTheLatestSnapshot'
 node --test src/test/js/merge.test.mjs        # 7 JS tests for the merge helpers
@@ -62,8 +62,9 @@ node --test src/test/js/merge.test.mjs        # 7 JS tests for the merge helpers
 | `RecentEventIdsTest` | unit | duplicate detection and bounded eviction |
 | `DataStoreOutageResponseTest` | web slice (`@WebMvcTest`, mocked services) | DB/Redis outages map to HTTP 503 |
 | `DocumentServiceIntegrationTest` | integration (PostgreSQL) | revisions, stale-edit rejection, 6-thread race has one winner, persistence |
-| `DocumentRestApiTest` | integration (HTTP) | status codes, Location header, validation errors, readiness |
-| `CollaborationWebSocketTest` | integration (WebSocket + Redis + DB) | join snapshot, broadcast, conflict, NOT_JOINED, validation, forged SEND blocked, presence join/leave, presence self-healing, cursors |
+| `DocumentRestApiTest` | integration (HTTP) | status codes, Location header, validation errors (incl. NUL characters), readiness |
+| `CollaborationWebSocketTest` | integration (WebSocket + Redis + DB) | join snapshot, broadcast, conflict, NOT_JOINED, validation (incl. NUL characters), forged SEND blocked, presence join/leave, presence self-healing, cursors |
+| `PresenceCleanupTest` | integration (Redis) | leftover entries of a previous run are removed at startup; a removal that failed is retried by the heartbeat (simulated with a Redis ACL user denied `HDEL`) |
 | `RedisSyncTest` | integration (Redis) | an event published by "another instance" reaches clients exactly once; malformed messages ignored |
 | `MultiInstanceSyncTest` | integration (2 Spring contexts) | edit on instance 1 reaches a client on instance 2; cross-instance conflict |
 
@@ -147,7 +148,8 @@ docker compose exec postgres psql -U syncsphere -d syncsphere \
 
 ## 8. Manual verification checklist
 
-These checks were performed on the Compose stack while writing the project (October 2026):
+These checks were performed on the Compose stack while writing the project and repeated during the
+acceptance review (October 2026):
 
 | Check | Result |
 |---|---|
@@ -159,4 +161,9 @@ These checks were performed on the Compose stack while writing the project (Octo
 | `docker compose stop redis`, edit on app-1 | edit saved and acknowledged locally; app-2 user caught up via snapshot after Redis restarted; presence restored by heartbeat; live sync resumed |
 | `docker compose stop postgres` | REST `503`, readiness DOWN (503), liveness UP; edit typed during the outage was retried and committed after restart |
 | `docker compose down` then `up -d` | document still present with the same revision (named volume) |
+| `docker compose restart postgres app-1 app-2` | content and revision unchanged |
+| `docker kill syncsphere-app-1-1` + `docker compose start app-1` (browsers connected) | before the fix a ghost participant stayed forever; after it, exactly the live participants and the log line "Removed N presence entries left over from a previous run" |
+| A raw STOMP client sends an edit with `baseRevision: 0` while the document is at revision 3 | `REVISION_CONFLICT` with `latest.revision = 3`; database unchanged |
+| Content containing U+0000 (REST and STOMP) | before the fix 503 and endless client retries; after it 400 / `VALIDATION_FAILED`, no retry |
+| Invalid requests | bad UUID 400, unknown document 404, blank or 121-character title 400, 50,001-character content 400, bad JSON 400, `DELETE` 405 |
 | WebSocket handshake with `Origin: http://evil.example` | `403` |
