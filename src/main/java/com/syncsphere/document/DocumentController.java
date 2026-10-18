@@ -1,5 +1,7 @@
 package com.syncsphere.document;
 
+import com.syncsphere.collaboration.Participant;
+import com.syncsphere.collaboration.PresenceService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,9 +28,11 @@ import java.util.UUID;
 public class DocumentController {
 
     private final DocumentService documentService;
+    private final PresenceService presenceService;
 
-    public DocumentController(DocumentService documentService) {
+    public DocumentController(DocumentService documentService, PresenceService presenceService) {
         this.documentService = documentService;
+        this.presenceService = presenceService;
     }
 
     @PostMapping
@@ -49,5 +53,15 @@ public class DocumentController {
     @GetMapping("/{id}")
     public DocumentSnapshot get(@PathVariable UUID id) {
         return documentService.getDocument(id);
+    }
+
+    /**
+     * Who is connected right now (across all instances). Clients poll this occasionally to repair
+     * their participant list in case a presence event was missed.
+     */
+    @GetMapping("/{id}/participants")
+    public List<Participant> participants(@PathVariable UUID id) {
+        documentService.getDocument(id); // 404 for unknown documents instead of an empty list
+        return presenceService.listParticipants(id);
     }
 }
