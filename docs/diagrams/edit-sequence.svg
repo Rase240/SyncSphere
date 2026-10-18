@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" width="960" height="640" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#333"/>
+    </marker>
+  </defs>
+  <rect width="960" height="640" fill="#ffffff"/>
+  <text x="480" y="28" text-anchor="middle" font-size="19" font-weight="bold" fill="#1d2330">One accepted edit, from Alice (app-1) to Bob (app-2)</text>
+
+  <!-- Lifeline headers -->
+  <g font-weight="bold" text-anchor="middle">
+    <rect x="20" y="45" width="120" height="36" rx="6" fill="#e8eefc" stroke="#3157d5"/><text x="80" y="68">Browser A</text>
+    <rect x="175" y="45" width="140" height="36" rx="6" fill="#f3f6ef" stroke="#3a7d44"/><text x="245" y="68">app-1</text>
+    <rect x="350" y="45" width="120" height="36" rx="6" fill="#fff6e0" stroke="#b26a00"/><text x="410" y="68">PostgreSQL</text>
+    <rect x="505" y="45" width="120" height="36" rx="6" fill="#fdecea" stroke="#c62828"/><text x="565" y="68">Redis</text>
+    <rect x="660" y="45" width="140" height="36" rx="6" fill="#f3f6ef" stroke="#3a7d44"/><text x="730" y="68">app-2</text>
+    <rect x="830" y="45" width="120" height="36" rx="6" fill="#e8eefc" stroke="#3157d5"/><text x="890" y="68">Browser B</text>
+  </g>
+  <g stroke="#bbb" stroke-dasharray="4,4">
+    <line x1="80" y1="81" x2="80" y2="620"/><line x1="245" y1="81" x2="245" y2="620"/>
+    <line x1="410" y1="81" x2="410" y2="620"/><line x1="565" y1="81" x2="565" y2="620"/>
+    <line x1="730" y1="81" x2="730" y2="620"/><line x1="890" y1="81" x2="890" y2="620"/>
+  </g>
+
+  <g stroke="#333" stroke-width="1.6" fill="none">
+    <line x1="80" y1="120" x2="243" y2="120" marker-end="url(#a)"/>
+    <line x1="245" y1="200" x2="408" y2="200" marker-end="url(#a)"/>
+    <line x1="410" y1="245" x2="247" y2="245" marker-end="url(#a)" stroke-dasharray="6,3"/>
+    <line x1="245" y1="290" x2="563" y2="290" marker-end="url(#a)"/>
+    <line x1="565" y1="335" x2="247" y2="335" marker-end="url(#a)"/>
+    <line x1="565" y1="335" x2="728" y2="335" marker-end="url(#a)"/>
+    <line x1="245" y1="420" x2="82" y2="420" marker-end="url(#a)"/>
+    <line x1="730" y1="420" x2="888" y2="420" marker-end="url(#a)"/>
+  </g>
+
+  <text x="90" y="112">1-2. SEND /app/documents/{id}/edit</text>
+  <text x="90" y="138" font-size="12" fill="#555">{baseRevision: 4, content, clientEditId}</text>
+  <rect x="255" y="148" width="250" height="34" rx="4" fill="#fafafa" stroke="#ccc"/>
+  <text x="262" y="163" font-size="12">3. guard + @Valid + "joined?" check</text>
+  <text x="262" y="177" font-size="12">4. revision 4 == stored revision 4 ?</text>
+  <text x="255" y="193">5. UPDATE ... WHERE id=? AND revision=4</text>
+  <text x="255" y="240">commit → revision 5</text>
+  <text x="255" y="283">6. PUBLISH DOCUMENT_UPDATED (JSON)</text>
+  <text x="580" y="328">7. delivered to every subscriber</text>
+  <rect x="100" y="355" width="290" height="40" rx="4" fill="#fafafa" stroke="#ccc"/>
+  <text x="108" y="371" font-size="12">each instance: de-duplicate by eventId,</text>
+  <text x="108" y="387" font-size="12">then convertAndSend("/topic/documents/{id}")</text>
+  <rect x="600" y="355" width="290" height="40" rx="4" fill="#fafafa" stroke="#ccc"/>
+  <text x="608" y="371" font-size="12">same code on app-2 (it has no idea</text>
+  <text x="608" y="387" font-size="12">the edit came from app-1)</text>
+  <text x="90" y="412">8. MESSAGE (ack: same clientEditId)</text>
+  <text x="740" y="412">8. MESSAGE rev 5</text>
+
+  <rect x="20" y="460" width="920" height="150" rx="6" fill="#fffdf5" stroke="#e0c070"/>
+  <text x="34" y="484" font-weight="bold">If Alice's baseRevision were stale (someone else already made revision 5):</text>
+  <text x="34" y="506">• Step 4 or step 5 fails → RevisionConflictException → nothing is written, nothing is published.</text>
+  <text x="34" y="528">• Only Alice receives an ErrorMessage on /user/queue/errors with code REVISION_CONFLICT and the latest snapshot.</text>
+  <text x="34" y="550">• Her browser re-applies her change onto the snapshot if it does not overlap the other change, then sends again;</text>
+  <text x="34" y="572">  otherwise it shows her text in the "rejected draft" panel. The server never merges anything itself.</text>
+  <text x="34" y="594" fill="#5f6b7a">Step numbers match the 8-step flow in the README.</text>
+</svg>

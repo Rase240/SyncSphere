@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 520" width="960" height="520" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13">
+  <defs>
+    <marker id="r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#333"/>
+    </marker>
+  </defs>
+  <rect width="960" height="520" fill="#ffffff"/>
+  <text x="480" y="28" text-anchor="middle" font-size="19" font-weight="bold" fill="#1d2330">Inside one instance: the HTTP path and the STOMP path</text>
+
+  <!-- HTTP lane -->
+  <text x="20" y="70" font-weight="bold" fill="#333">HTTP  GET /api/documents/{id}</text>
+  <g text-anchor="middle">
+    <rect x="20" y="85" width="120" height="50" rx="6" fill="#e8eefc" stroke="#3157d5"/><text x="80" y="115">Browser</text>
+    <rect x="170" y="85" width="140" height="50" rx="6" fill="#fff" stroke="#888"/><text x="240" y="106">DispatcherServlet</text><text x="240" y="124" font-size="11" fill="#555">(Spring MVC)</text>
+    <rect x="340" y="85" width="150" height="50" rx="6" fill="#fff" stroke="#888"/><text x="415" y="106">DocumentController</text><text x="415" y="124" font-size="11" fill="#555">UUID path variable</text>
+    <rect x="520" y="85" width="150" height="50" rx="6" fill="#fff" stroke="#888"/><text x="595" y="106">DocumentService</text><text x="595" y="124" font-size="11" fill="#555">@Transactional(readOnly)</text>
+    <rect x="700" y="85" width="140" height="50" rx="6" fill="#fff" stroke="#888"/><text x="770" y="106">DocumentRepository</text><text x="770" y="124" font-size="11" fill="#555">Spring Data JPA</text>
+    <rect x="860" y="85" width="85" height="50" rx="6" fill="#fff6e0" stroke="#b26a00"/><text x="902" y="115">Postgres</text>
+  </g>
+  <g stroke="#333" stroke-width="1.6">
+    <line x1="140" y1="110" x2="168" y2="110" marker-end="url(#r)"/>
+    <line x1="310" y1="110" x2="338" y2="110" marker-end="url(#r)"/>
+    <line x1="490" y1="110" x2="518" y2="110" marker-end="url(#r)"/>
+    <line x1="670" y1="110" x2="698" y2="110" marker-end="url(#r)"/>
+    <line x1="840" y1="110" x2="858" y2="110" marker-end="url(#r)"/>
+  </g>
+  <text x="340" y="160" font-size="12" fill="#555">Exceptions → RestExceptionHandler → RFC 7807 JSON (400 / 404 / 503)</text>
+  <text x="340" y="178" font-size="12" fill="#555">Entity → DocumentSnapshot record → JSON (Jackson)</text>
+
+  <!-- STOMP lane -->
+  <text x="20" y="230" font-weight="bold" fill="#333">STOMP  SEND /app/documents/{id}/edit   (over the already-open WebSocket)</text>
+  <g text-anchor="middle">
+    <rect x="20" y="245" width="120" height="50" rx="6" fill="#e8eefc" stroke="#3157d5"/><text x="80" y="275">Browser</text>
+    <rect x="170" y="245" width="140" height="50" rx="6" fill="#fff" stroke="#888"/><text x="240" y="266">clientInbound</text><text x="240" y="284" font-size="11" fill="#555">channel</text>
+    <rect x="340" y="245" width="150" height="50" rx="6" fill="#fff" stroke="#888"/><text x="415" y="266">StompDestination</text><text x="415" y="284" font-size="11" fill="#555">Guard (allow-list)</text>
+    <rect x="520" y="245" width="150" height="50" rx="6" fill="#fff" stroke="#888"/><text x="595" y="266">Collaboration</text><text x="595" y="284" font-size="11" fill="#555">Controller @MessageMapping</text>
+    <rect x="700" y="245" width="140" height="50" rx="6" fill="#fff" stroke="#888"/><text x="770" y="266">Collaboration</text><text x="770" y="284" font-size="11" fill="#555">Service</text>
+  </g>
+  <g stroke="#333" stroke-width="1.6">
+    <line x1="140" y1="270" x2="168" y2="270" marker-end="url(#r)"/>
+    <line x1="310" y1="270" x2="338" y2="270" marker-end="url(#r)"/>
+    <line x1="490" y1="270" x2="518" y2="270" marker-end="url(#r)"/>
+    <line x1="670" y1="270" x2="698" y2="270" marker-end="url(#r)"/>
+  </g>
+  <g text-anchor="middle">
+    <rect x="610" y="335" width="160" height="50" rx="6" fill="#fff" stroke="#888"/><text x="690" y="356">DocumentService</text><text x="690" y="374" font-size="11" fill="#555">applyEdit (commit)</text>
+    <rect x="800" y="335" width="145" height="50" rx="6" fill="#fff" stroke="#888"/><text x="872" y="356">SyncEventPublisher</text><text x="872" y="374" font-size="11" fill="#555">PUBLISH to Redis</text>
+    <rect x="800" y="420" width="145" height="50" rx="6" fill="#fdecea" stroke="#c62828"/><text x="872" y="450">Redis channel</text>
+    <rect x="600" y="420" width="170" height="50" rx="6" fill="#fff" stroke="#888"/><text x="685" y="441">SyncEventListener</text><text x="685" y="459" font-size="11" fill="#555">(every instance)</text>
+    <rect x="390" y="420" width="180" height="50" rx="6" fill="#fff" stroke="#888"/><text x="480" y="441">WebSocketBroadcaster</text><text x="480" y="459" font-size="11" fill="#555">dedupe → simple broker</text>
+    <rect x="190" y="420" width="170" height="50" rx="6" fill="#e8eefc" stroke="#3157d5"/><text x="275" y="441">Subscribed browsers</text><text x="275" y="459" font-size="11" fill="#555">/topic/documents/{id}</text>
+  </g>
+  <g stroke="#333" stroke-width="1.6">
+    <line x1="750" y1="295" x2="700" y2="333" marker-end="url(#r)"/>
+    <line x1="790" y1="295" x2="860" y2="333" marker-end="url(#r)"/>
+    <line x1="872" y1="385" x2="872" y2="418" marker-end="url(#r)"/>
+    <line x1="800" y1="445" x2="772" y2="445" marker-end="url(#r)"/>
+    <line x1="600" y1="445" x2="572" y2="445" marker-end="url(#r)"/>
+    <line x1="390" y1="445" x2="362" y2="445" marker-end="url(#r)"/>
+  </g>
+  <text x="20" y="335" font-size="12" fill="#555">1st: persist (step 5), 2nd: publish (step 6).</text>
+  <text x="20" y="353" font-size="12" fill="#555">Exceptions → @MessageExceptionHandler →</text>
+  <text x="20" y="371" font-size="12" fill="#555">ErrorMessage on /user/queue/errors (sender only)</text>
+  <text x="20" y="500" font-size="12" fill="#555">If PUBLISH fails (Redis down), SyncEventPublisher calls WebSocketBroadcaster directly: local clients still get the update.</text>
+</svg>

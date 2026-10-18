@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 600" width="960" height="600" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="14">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#333"/>
+    </marker>
+  </defs>
+  <rect width="960" height="600" fill="#ffffff"/>
+  <text x="480" y="30" text-anchor="middle" font-size="20" font-weight="bold" fill="#1d2330">SyncSphere system architecture (Docker Compose setup)</text>
+
+  <!-- Browsers -->
+  <rect x="60" y="60" width="300" height="70" rx="8" fill="#e8eefc" stroke="#3157d5" stroke-width="2"/>
+  <text x="210" y="88" text-anchor="middle" font-weight="bold" fill="#1d2330">Browser A (Alice)</text>
+  <text x="210" y="110" text-anchor="middle" fill="#333">HTML + JS + stomp.js · localhost:8080</text>
+
+  <rect x="600" y="60" width="300" height="70" rx="8" fill="#e8eefc" stroke="#3157d5" stroke-width="2"/>
+  <text x="750" y="88" text-anchor="middle" font-weight="bold" fill="#1d2330">Browser B (Bob)</text>
+  <text x="750" y="110" text-anchor="middle" fill="#333">HTML + JS + stomp.js · localhost:8081</text>
+
+  <!-- App instances -->
+  <rect x="40" y="180" width="340" height="230" rx="8" fill="#f3f6ef" stroke="#3a7d44" stroke-width="2"/>
+  <text x="210" y="205" text-anchor="middle" font-weight="bold" fill="#1d2330">Spring Boot instance "app-1"</text>
+  <rect x="60" y="220" width="140" height="40" rx="4" fill="#fff" stroke="#888"/>
+  <text x="130" y="245" text-anchor="middle" font-size="13">REST controllers</text>
+  <rect x="220" y="220" width="140" height="40" rx="4" fill="#fff" stroke="#888"/>
+  <text x="290" y="245" text-anchor="middle" font-size="13">STOMP controller</text>
+  <rect x="60" y="275" width="300" height="40" rx="4" fill="#fff" stroke="#888"/>
+  <text x="210" y="300" text-anchor="middle" font-size="13">Services: DocumentService · CollaborationService</text>
+  <rect x="60" y="330" width="140" height="60" rx="4" fill="#fff" stroke="#888"/>
+  <text x="130" y="355" text-anchor="middle" font-size="13">Redis publisher</text>
+  <text x="130" y="373" text-anchor="middle" font-size="13">+ listener</text>
+  <rect x="220" y="330" width="140" height="60" rx="4" fill="#fff" stroke="#888"/>
+  <text x="290" y="355" text-anchor="middle" font-size="13">In-memory</text>
+  <text x="290" y="373" text-anchor="middle" font-size="13">simple broker</text>
+
+  <rect x="580" y="180" width="340" height="230" rx="8" fill="#f3f6ef" stroke="#3a7d44" stroke-width="2"/>
+  <text x="750" y="205" text-anchor="middle" font-weight="bold" fill="#1d2330">Spring Boot instance "app-2"</text>
+  <rect x="600" y="220" width="140" height="40" rx="4" fill="#fff" stroke="#888"/>
+  <text x="670" y="245" text-anchor="middle" font-size="13">REST controllers</text>
+  <rect x="760" y="220" width="140" height="40" rx="4" fill="#fff" stroke="#888"/>
+  <text x="830" y="245" text-anchor="middle" font-size="13">STOMP controller</text>
+  <rect x="600" y="275" width="300" height="40" rx="4" fill="#fff" stroke="#888"/>
+  <text x="750" y="300" text-anchor="middle" font-size="13">Services: DocumentService · CollaborationService</text>
+  <rect x="600" y="330" width="140" height="60" rx="4" fill="#fff" stroke="#888"/>
+  <text x="670" y="355" text-anchor="middle" font-size="13">Redis publisher</text>
+  <text x="670" y="373" text-anchor="middle" font-size="13">+ listener</text>
+  <rect x="760" y="330" width="140" height="60" rx="4" fill="#fff" stroke="#888"/>
+  <text x="830" y="355" text-anchor="middle" font-size="13">In-memory</text>
+  <text x="830" y="373" text-anchor="middle" font-size="13">simple broker</text>
+
+  <!-- Browser <-> app -->
+  <line x1="160" y1="130" x2="160" y2="178" stroke="#333" stroke-width="2" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+  <text x="168" y="158" font-size="12" fill="#333">HTTP (REST)</text>
+  <line x1="290" y1="130" x2="290" y2="178" stroke="#3157d5" stroke-width="2.5" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+  <text x="298" y="158" font-size="12" fill="#3157d5">WebSocket /ws (STOMP)</text>
+  <line x1="700" y1="130" x2="700" y2="178" stroke="#333" stroke-width="2" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+  <text x="708" y="158" font-size="12" fill="#333">HTTP (REST)</text>
+  <line x1="830" y1="130" x2="830" y2="178" stroke="#3157d5" stroke-width="2.5" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+  <text x="838" y="158" font-size="12" fill="#3157d5">WebSocket /ws</text>
+
+  <!-- Redis -->
+  <rect x="360" y="450" width="240" height="110" rx="8" fill="#fdecea" stroke="#c62828" stroke-width="2"/>
+  <text x="480" y="476" text-anchor="middle" font-weight="bold" fill="#1d2330">Redis</text>
+  <text x="480" y="498" text-anchor="middle" font-size="13">Pub/Sub channel</text>
+  <text x="480" y="516" text-anchor="middle" font-size="13" font-family="Consolas, monospace">syncsphere:sync-events</text>
+  <text x="480" y="538" text-anchor="middle" font-size="13">presence hashes + heartbeats</text>
+
+  <!-- Postgres -->
+  <rect x="380" y="200" width="200" height="110" rx="8" fill="#fff6e0" stroke="#b26a00" stroke-width="2"/>
+  <text x="480" y="228" text-anchor="middle" font-weight="bold" fill="#1d2330">PostgreSQL</text>
+  <text x="480" y="250" text-anchor="middle" font-size="13">table: documents</text>
+  <text x="480" y="270" text-anchor="middle" font-size="13">(source of truth,</text>
+  <text x="480" y="288" text-anchor="middle" font-size="13">revision column)</text>
+
+  <!-- app <-> postgres -->
+  <line x1="362" y1="295" x2="378" y2="275" stroke="#b26a00" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="598" y1="295" x2="582" y2="275" stroke="#b26a00" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="480" y="330" text-anchor="middle" font-size="12" fill="#b26a00">JDBC / JPA (both instances)</text>
+
+  <!-- app <-> redis -->
+  <line x1="130" y1="392" x2="358" y2="490" stroke="#c62828" stroke-width="2" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+  <line x1="670" y1="392" x2="602" y2="490" stroke="#c62828" stroke-width="2" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+  <text x="170" y="460" font-size="12" fill="#c62828">PUBLISH / SUBSCRIBE</text>
+  <text x="660" y="460" font-size="12" fill="#c62828">PUBLISH / SUBSCRIBE</text>
+
+  <text x="480" y="588" text-anchor="middle" font-size="12" fill="#5f6b7a">Each simple broker only reaches its own instance's WebSocket clients; Redis carries events between instances.</text>
+</svg>
